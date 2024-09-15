@@ -1,28 +1,30 @@
 {
-  "name": "whatsappweb-js-multiple-user",
+  "name": "whatsapp-temple-bot",
   "version": "1.0.0",
-  "description": "login whatsapp-web.js using multiple users",
+  "description": "WhatsApp bot for booking vazhipadus and managing temple activities",
   "main": "app.js",
   "scripts": {
-    "test": "app"
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Babuperumana/whatsappweb-js-multiple-user.git"
+    "url": "git+https://github.com/Babuperumana/whatsapp-temple-bot.git"
   },
   "author": "Babuperumana",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Babuperumana/whatsappweb-js-multiple-user/issues"
-  },
-  "homepage": "https://github.com/Babuperumana/whatsappweb-js-multiple-user#readme",
- "dependencies": {
+  "dependencies": {
     "express": "^5.0.0",
     "express-session": "^1.17.3",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
     "socket.io": "^4.6.1",
     "whatsapp-web.js": "^1.25.0",
-    "moment": "^2.29.4"
-  }
+    "moment": "^2.29.4",
+    "cors": "^2.8.5"
+  },
+  "bugs": {
+    "url": "https://github.com/Babuperumana/whatsapp-temple-bot/issues"
+  },
+  "homepage": "https://github.com/Babuperumana/whatsapp-temple-bot#readme"
 }

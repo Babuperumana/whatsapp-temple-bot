@@ -45,17 +45,19 @@ function confirmBooking(vazhipadu, date, name, star) {
            `Booking Details:\nName: ${name}\nStar: ${star}\n\nThank you for your booking! May the divine blessings be with you.`;
 }
 
-function displayCart(cart) {
+function displayCart(cart, dakshina = 0, prasadamFee = 0) {
     if (cart.length === 0) {
         return 'Your booking cart is empty. Please add vazhipadus by selecting from the menu.';
     }
 
+    let total = cart.reduce((sum, item) => sum + item.vazhipadu.price, 0) + dakshina + prasadamFee;
     let response = 'Your current booking cart:\n\n';
     cart.forEach((item, index) => {
         response += `${index + 1}. *${item.vazhipadu.name}* on *${item.date}* for ₹${item.vazhipadu.price}\n` +
                     `Name: ${item.name}, Star: ${item.star}\n`;
     });
-    response += '\nReply with "confirm" to finalize your bookings, "remove <item number>" to remove an item, "edit <item number>" to edit an item, "clear" to clear all bookings, or "add" to add more vazhipadus.';
+    response += `\nDakshina: ₹${dakshina}\nPrasadam Shipping Fee: ₹${prasadamFee}\nTotal Amount: ₹${total}\n\n`;
+    response += 'Reply with "confirm" to finalize your bookings, "remove <item number>" to remove an item, "edit <item number>" to edit an item, "clear" to clear all bookings, or "add" to add more vazhipadus.';
     return response;
 }
 
@@ -97,7 +99,7 @@ io.on('connection', (socket) => {
     client.on('message', async msg => {
         const chatId = msg.from;
         const messageText = msg.body.toLowerCase().trim();
-        let userSession = userSessions[chatId] || { step: 'greet', cart: [] };
+        let userSession = userSessions[chatId] || { step: 'greet', cart: [], dakshina: 0, prasadamFee: 0, prasadamDetails: null };
 
         // Send greeting message on first interaction
         if (!userSessions[chatId]) {
@@ -155,7 +157,7 @@ io.on('connection', (socket) => {
                 star: userSession.star
             });
             userSession.step = 'addMore'; // Move to add more step
-            client.sendMessage(chatId, `Added *${userSession.selectedVazhipadu.name}* on *${selectedDate}* to your booking cart.\n\nWould you like to add another vazhipadu? Reply with "yes" to add more or "no" to confirm your bookings.`);
+            client.sendMessage(chatId, `Added *${userSession.selectedVazhipadu.name}* on *${selectedDate}* to your booking cart.\n\nWould you like to add another vazhipadu? Reply with "yes" to add more or "no" to proceed to dakshina offering.`);
             return;
         }
 
@@ -165,17 +167,89 @@ io.on('connection', (socket) => {
                 userSession.step = 'booking';
                 client.sendMessage(chatId, displayVazhipadus());
             } else if (messageText === 'no') {
-                client.sendMessage(chatId, displayCart(userSession.cart));
-                userSession.step = 'cart'; // Move to cart step after adding
+                userSession.step = 'dakshina';
+                client.sendMessage(chatId, 'Would you like to give dakshina to the Melshanthi for performing poojas? Reply with "yes" or "no".');
             } else {
-                client.sendMessage(chatId, 'Invalid input. Please reply with "yes" to add more vazhipadus or "no" to confirm your bookings.');
+                client.sendMessage(chatId, 'Invalid input. Please reply with "yes" to add more vazhipadus or "no" to proceed to dakshina offering.');
             }
+            return;
+        }
+
+        // Handle dakshina offering decision
+        if (userSession.step === 'dakshina') {
+            if (messageText === 'yes') {
+                userSession.step = 'dakshinaAmount';
+                client.sendMessage(chatId, 'Please enter the amount you wish to give as dakshina.');
+            } else if (messageText === 'no') {
+                userSession.step = 'prasadam';
+                client.sendMessage(chatId, 'How would you like to collect your prasadam?\n1. Collect from Temple\n2. Give prasadam to other devotees in the temple\n3. Send prasadam by post or courier');
+            } else {
+                client.sendMessage(chatId, 'Invalid input. Please reply with "yes" to give dakshina or "no" to continue checkout.');
+            }
+            return;
+        }
+
+        // Handle dakshina amount input
+        if (userSession.step === 'dakshinaAmount') {
+            const dakshinaAmount = parseInt(messageText);
+            if (!isNaN(dakshinaAmount) && dakshinaAmount > 0) {
+                userSession.dakshina = dakshinaAmount;
+                userSession.step = 'prasadam';
+                client.sendMessage(chatId, `Dakshina of ₹${dakshinaAmount} has been added.\n\nHow would you like to collect your prasadam?\n1. Collect from Temple\n2. Give prasadam to other devotees in the temple\n3. Send prasadam by post or courier`);
+            } else {
+                client.sendMessage(chatId, 'Invalid amount. Please enter a valid dakshina amount.');
+            }
+            return;
+        }
+
+        // Handle prasadam collection options
+        if (userSession.step === 'prasadam') {
+            if (messageText === '1') {
+                userSession.prasadamDetails = 'Collect from Temple';
+                client.sendMessage(chatId, displayCart(userSession.cart, userSession.dakshina, userSession.prasadamFee));
+                userSession.step = 'cart'; // Proceed to cart step
+            } else if (messageText === '2') {
+                userSession.prasadamDetails = 'Give prasadam to other devotees in the temple';
+                client.sendMessage(chatId, displayCart(userSession.cart, userSession.dakshina, userSession.prasadamFee));
+                userSession.step = 'cart'; // Proceed to cart step
+            } else if (messageText === '3') {
+                userSession.prasadamDetails = 'Send prasadam by post or courier';
+                userSession.prasadamFee = 75; // Add courier charge
+                client.sendMessage(chatId, 'A ₹75 shipping fee will be added to your total. Do you agree? Reply with "yes" to continue or "no" to change your option.');
+                userSession.step = 'confirmPrasadamFee';
+            } else {
+                client.sendMessage(chatId, 'Invalid input. Please choose an option:\n1. Collect from Temple\n2. Give prasadam to other devotees in the temple\n3. Send prasadam by post or courier');
+            }
+            return;
+        }
+
+        // Confirm prasadam fee for postal delivery
+        if (userSession.step === 'confirmPrasadamFee') {
+            if (messageText === 'yes') {
+                client.sendMessage(chatId, displayCart(userSession.cart, userSession.dakshina, userSession.prasadamFee));
+                client.sendMessage(chatId, 'Please provide your delivery address in the following format:\nName\nHome Address\nStreet Address\nDistrict\nState\nPincode\nPhone Number');
+                userSession.step = 'prasadamAddress';
+            } else if (messageText === 'no') {
+                userSession.prasadamFee = 0; // Reset fee if user declines
+                userSession.step = 'prasadam';
+                client.sendMessage(chatId, 'How would you like to collect your prasadam?\n1. Collect from Temple\n2. Give prasadam to other devotees in the temple\n3. Send prasadam by post or courier');
+            } else {
+                client.sendMessage(chatId, 'Invalid input. Reply with "yes" to accept the ₹75 fee or "no" to select a different prasadam collection option.');
+            }
+            return;
+        }
+
+        // Handle address input for postal delivery
+        if (userSession.step === 'prasadamAddress') {
+            userSession.prasadamAddress = msg.body.trim(); // Save the address
+            client.sendMessage(chatId, `Address received:\n${userSession.prasadamAddress}\n\n${displayCart(userSession.cart, userSession.dakshina, userSession.prasadamFee)}`);
+            userSession.step = 'cart'; // Proceed to cart step
             return;
         }
 
         // Handle viewing the current booking cart
         if (messageText === 'view cart') {
-            client.sendMessage(chatId, displayCart(userSession.cart));
+            client.sendMessage(chatId, displayCart(userSession.cart, userSession.dakshina, userSession.prasadamFee));
             return;
         }
 
@@ -191,7 +265,7 @@ io.on('connection', (socket) => {
             const itemNumber = parseInt(messageText.replace('remove ', '')) - 1;
             if (userSession.cart[itemNumber]) {
                 const removedItem = userSession.cart.splice(itemNumber, 1);
-                client.sendMessage(chatId, `*${removedItem[0].vazhipadu.name}* has been removed from your cart.\n\n${displayCart(userSession.cart)}`);
+                client.sendMessage(chatId, `*${removedItem[0].vazhipadu.name}* has been removed from your cart.\n\n${displayCart(userSession.cart, userSession.dakshina, userSession.prasadamFee)}`);
             } else {
                 client.sendMessage(chatId, 'Invalid item number. Please try again or reply with "view cart" to see the items in your cart.');
             }
@@ -217,6 +291,8 @@ io.on('connection', (socket) => {
         // Handle clearing the cart
         if (messageText === 'clear') {
             userSession.cart = [];
+            userSession.dakshina = 0; // Reset dakshina as well
+            userSession.prasadamFee = 0; // Reset prasadam fee
             client.sendMessage(chatId, 'Your booking cart has been cleared. You can start adding new vazhipadus by selecting from the menu:\n\n' + displayVazhipadus());
             userSession.step = 'menu';
             return;
@@ -224,8 +300,10 @@ io.on('connection', (socket) => {
 
         // Handle confirming all bookings in the cart
         if (userSession.step === 'cart' && messageText === 'confirm' && userSession.cart.length > 0) {
+            const totalAmount = userSession.cart.reduce((sum, item) => sum + item.vazhipadu.price, 0) + userSession.dakshina + userSession.prasadamFee;
             const confirmationMessages = userSession.cart.map((item) => confirmBooking(item.vazhipadu, item.date, item.name, item.star)).join('\n\n');
-            client.sendMessage(chatId, confirmationMessages);
+            const finalMessage = `${confirmationMessages}\n\nPrasadam Collection: ${userSession.prasadamDetails}\nTotal Amount (including Dakshina and Shipping): ₹${totalAmount}\n\nThank you for your generous contributions!`;
+            client.sendMessage(chatId, finalMessage);
             delete userSessions[chatId]; // Clear the session after confirming
             return;
         }

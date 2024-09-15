@@ -8,20 +8,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/muchub/whatsappweb-js-multiple-user.git"
+    "url": "git+https://github.com/Babuperumana/whatsappweb-js-multiple-user.git"
   },
-  "author": "Muchub",
+  "author": "Babuperumana",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/muchub/whatsappweb-js-multiple-user/issues"
+    "url": "https://github.com/Babuperumana/whatsappweb-js-multiple-user/issues"
   },
-  "homepage": "https://github.com/muchub/whatsappweb-js-multiple-user#readme",
-  "dependencies": {
+  "homepage": "https://github.com/Babuperumana/whatsappweb-js-multiple-user#readme",
+ "dependencies": {
     "express": "^5.0.0",
     "express-session": "^1.17.3",
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
     "socket.io": "^4.6.1",
-    "whatsapp-web.js": "^1.25.0"
+    "whatsapp-web.js": "^1.25.0",
+    "moment": "^2.29.4"
   }
 }

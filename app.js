@@ -12,7 +12,14 @@ const fs = require('fs'); // File system module to save bookings to JSON
 const { vazhipadus, displayVazhipadus } = require('./vazhipadus'); // Import vazhipadu details
 const { displayUpcomingEvents } = require('./events'); // Import upcoming events
 
-const client = new Client();
+const client = new Client({
+        authStrategy: new LocalAuth(),
+        puppeteer: {
+            headless: true,
+            args: [ '--no-sandbox', '--disable-gpu', ],
+        },
+        webVersionCache: { type: 'remote', remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html', }
+    });
 
 app.use(cors());
 const port = 3000;

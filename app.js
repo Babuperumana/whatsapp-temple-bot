@@ -7,6 +7,7 @@ const server = http.createServer(app);
 const socketIO = require("socket.io");
 const moment = require('moment'); // For handling date input
 const cors = require('cors');
+const fs = require('fs'); // File system module to save bookings to JSON
 
 const client = new Client();
 
@@ -30,6 +31,10 @@ const vazhipadus = [
 ];
 
 let userSessions = {};
+
+function generateReferenceNumber() {
+    return `REF${Math.floor(Math.random() * 1000000)}`;
+}
 
 function displayVazhipadus() {
     let response = 'Available Vazhipadus (Offerings) with their rates:\n\n';
@@ -61,7 +66,35 @@ function displayCart(cart, dakshina = 0, prasadamFee = 0) {
     return response;
 }
 
-// Greet new users with options
+function sendBookingDetailsToNumbers(bookingDetails, referenceNumber) {
+    const recipientNumbers = ['917293959595@c.us', '918907959595@c.us', '9995950950@c.us']; // List of WhatsApp numbers to send details
+    const message = `Booking Reference: ${referenceNumber}\n\n${bookingDetails}`;
+
+    recipientNumbers.forEach(number => {
+        client.sendMessage(number, message)
+            .then(response => console.log(`Booking details sent to ${number}: ${response}`))
+            .catch(error => console.error(`Failed to send booking details to ${number}: ${error}`));
+    });
+}
+
+function saveBookingToFile(bookingData) {
+    const filePath = './bookings.json';
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        let bookings = [];
+        if (!err && data) {
+            bookings = JSON.parse(data);
+        }
+        bookings.push(bookingData);
+        fs.writeFile(filePath, JSON.stringify(bookings, null, 2), (err) => {
+            if (err) {
+                console.error('Failed to save booking details:', err);
+            } else {
+                console.log('Booking details saved successfully.');
+            }
+        });
+    });
+}
+
 function greetingMessage() {
     return `🙏 Welcome to [Your Temple's Name]! 🙏\n\nPlease choose an option below:\n1. View Upcoming Events\n2. Book Vazhipadus Online\n\nReply with '1' for events or '2' for bookings.`;
 }
@@ -300,9 +333,26 @@ io.on('connection', (socket) => {
 
         // Handle confirming all bookings in the cart
         if (userSession.step === 'cart' && messageText === 'confirm' && userSession.cart.length > 0) {
+            const referenceNumber = generateReferenceNumber();
             const totalAmount = userSession.cart.reduce((sum, item) => sum + item.vazhipadu.price, 0) + userSession.dakshina + userSession.prasadamFee;
             const confirmationMessages = userSession.cart.map((item) => confirmBooking(item.vazhipadu, item.date, item.name, item.star)).join('\n\n');
-            const finalMessage = `${confirmationMessages}\n\nPrasadam Collection: ${userSession.prasadamDetails}\nTotal Amount (including Dakshina and Shipping): ₹${totalAmount}\n\nThank you for your generous contributions!`;
+            const finalMessage = `${confirmationMessages}\n\nPrasadam Collection: ${userSession.prasadamDetails}\nTotal Amount (including Dakshina and Shipping): ₹${totalAmount}\n\nBooking Reference: ${referenceNumber}\nThank you for your generous contributions!`;
+            
+            // Send the booking details to other numbers
+            sendBookingDetailsToNumbers(finalMessage, referenceNumber);
+            
+            // Save the booking details to a JSON file
+            const bookingData = {
+                referenceNumber,
+                bookings: userSession.cart,
+                dakshina: userSession.dakshina,
+                prasadamFee: userSession.prasadamFee,
+                prasadamDetails: userSession.prasadamDetails,
+                totalAmount,
+                prasadamAddress: userSession.prasadamAddress
+            };
+            saveBookingToFile(bookingData);
+
             client.sendMessage(chatId, finalMessage);
             delete userSessions[chatId]; // Clear the session after confirming
             return;

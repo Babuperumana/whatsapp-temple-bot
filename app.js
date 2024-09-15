@@ -1,3 +1,4 @@
+// app.js
 const { Client, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const express = require('express');
@@ -8,6 +9,8 @@ const socketIO = require("socket.io");
 const moment = require('moment'); // For handling date input
 const cors = require('cors');
 const fs = require('fs'); // File system module to save bookings to JSON
+const { vazhipadus, displayVazhipadus } = require('./vazhipadus'); // Import vazhipadu details
+const { displayUpcomingEvents } = require('./events'); // Import upcoming events
 
 const client = new Client();
 
@@ -23,26 +26,10 @@ const io = socketIO(server, {
     }
 });
 
-// Sample list of vazhipadus (offerings)
-const vazhipadus = [
-    { id: 1, name: 'Ganapathy Homam', price: 500, description: 'For prosperity and removing obstacles.' },
-    { id: 2, name: 'Maha Mrityunjaya Homam', price: 1500, description: 'For health and longevity.' },
-    { id: 3, name: 'Navagraha Pooja', price: 1000, description: 'For mitigating planetary effects.' },
-];
-
 let userSessions = {};
 
 function generateReferenceNumber() {
     return `REF${Math.floor(Math.random() * 1000000)}`;
-}
-
-function displayVazhipadus() {
-    let response = 'Available Vazhipadus (Offerings) with their rates:\n\n';
-    vazhipadus.forEach(vazhipadu => {
-        response += `*${vazhipadu.id}.* ${vazhipadu.name} - ₹${vazhipadu.price}\n${vazhipadu.description}\n\n`;
-    });
-    response += 'Reply with the number of the vazhipadu you want to add to your booking.';
-    return response;
 }
 
 function confirmBooking(vazhipadu, date, name, star) {
@@ -144,7 +131,7 @@ io.on('connection', (socket) => {
         // Handle user response to greeting
         if (userSession.step === 'greet') {
             if (messageText === '1') {
-                client.sendMessage(chatId, 'Upcoming Events:\n1. Navaratri - 10 Oct\n2. Diwali - 4 Nov\n...More events...');
+                client.sendMessage(chatId, displayUpcomingEvents());
                 userSession.step = 'done'; // Move to done after showing events
             } else if (messageText === '2') {
                 client.sendMessage(chatId, displayVazhipadus());
